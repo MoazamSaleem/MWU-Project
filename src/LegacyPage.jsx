@@ -1,0 +1,176 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { legacyPageSet } from "./legacyPages";
+
+const STYLE_ATTR = "data-legacy-style";
+const SCRIPT_ATTR = "data-legacy-script";
+
+const legacyAliases = {
+  "home-university": "index",
+  home: "index"
+};
+
+function normalizeScriptSrc(src) {
+  try {
+    return new URL(src, window.location.origin).toString();
+  } catch {
+    return src;
+  }
+}
+
+function toRoutePath(href) {
+  if (!href) return null;
+  if (href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return null;
+  if (href.startsWith("http://") || href.startsWith("https://")) return null;
+
+  const [pathPart, hashPart] = href.split("#");
+  const [pathname, query] = pathPart.split("?");
+
+  if (!pathname.endsWith(".html")) return null;
+
+  const fileName = pathname.split("/").pop();
+  if (!fileName) return null;
+
+  let slug = fileName.replace(/\.html$/i, "");
+  if (legacyAliases[slug]) {
+    slug = legacyAliases[slug];
+  }
+
+  const baseRoute = slug === "index" ? "/" : `/${slug}`;
+  const queryPart = query ? `?${query}` : "";
+  const hash = hashPart ? `#${hashPart}` : "";
+
+  return `${baseRoute}${queryPart}${hash}`;
+}
+
+function cleanupLegacyAssets() {
+  document.querySelectorAll(`link[${STYLE_ATTR}], style[${STYLE_ATTR}]`).forEach((node) => node.remove());
+  document.querySelectorAll(`script[${SCRIPT_ATTR}]`).forEach((node) => node.remove());
+}
+
+async function executeLegacyScripts(scripts) {
+  for (const scriptDef of scripts) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.setAttribute(SCRIPT_ATTR, "true");
+
+      if (scriptDef.type) {
+        script.type = scriptDef.type;
+      }
+
+      if (scriptDef.src) {
+        script.src = scriptDef.src;
+        script.async = false;
+        script.onload = resolve;
+        script.onerror = reject;
+      } else {
+        script.textContent = scriptDef.content || "";
+        resolve();
+      }
+
+      document.body.appendChild(script);
+    }).catch(() => {
+      // Keep rendering even if one script fails.
+    });
+  }
+}
+
+export default function LegacyPage() {
+  const { slug } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const containerRef = useRef(null);
+  const [htmlContent, setHtmlContent] = useState("");
+
+  const pageSlug = useMemo(() => {
+    const normalized = slug && slug.trim() ? slug : "index";
+    return legacyAliases[normalized] || normalized;
+  }, [slug]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPage() {
+      const targetSlug = pageSlug;
+      const file = `/legacy/${targetSlug}.html`;
+
+      try {
+        const response = await fetch(file, { cache: "no-store" });
+        if (!response.ok) {
+          setHtmlContent("<main class='legacy-error'><h1>Page not found</h1></main>");
+          return;
+        }
+
+        const source = await response.text();
+        if (cancelled) return;
+
+        const doc = new DOMParser().parseFromString(source, "text/html");
+
+        document.title = doc.title || "MWU";
+
+        cleanupLegacyAssets();
+
+        doc.head.querySelectorAll("link[rel='stylesheet'], style").forEach((node) => {
+          const clone = node.cloneNode(true);
+          clone.setAttribute(STYLE_ATTR, "true");
+          document.head.appendChild(clone);
+        });
+
+        const scripts = [];
+        doc.querySelectorAll("script").forEach((script) => {
+          const src = script.getAttribute("src");
+          scripts.push({
+            src: src ? normalizeScriptSrc(src) : "",
+            type: script.getAttribute("type") || "",
+            content: script.textContent || ""
+          });
+          script.remove();
+        });
+
+        const bodyHtml = doc.body ? doc.body.innerHTML : source;
+        setHtmlContent(bodyHtml);
+
+        requestAnimationFrame(() => {
+          executeLegacyScripts(scripts);
+        });
+      } catch {
+        if (!cancelled) {
+          setHtmlContent("<main class='legacy-error'><h1>Failed to load page</h1></main>");
+        }
+      }
+    }
+
+    loadPage();
+
+    return () => {
+      cancelled = true;
+      cleanupLegacyAssets();
+    };
+  }, [pageSlug]);
+
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return undefined;
+
+    const onClick = (event) => {
+      const link = event.target.closest("a");
+      if (!link) return;
+
+      const href = link.getAttribute("href");
+      const routePath = toRoutePath(href);
+      if (!routePath) return;
+
+      const slugValue = routePath.split("?")[0].split("#")[0].replace(/^\//, "") || "index";
+      if (!legacyPageSet.has(slugValue)) return;
+
+      event.preventDefault();
+      navigate(routePath);
+    };
+
+    root.addEventListener("click", onClick);
+    return () => root.removeEventListener("click", onClick);
+  }, [navigate, location.pathname]);
+
+  return <div ref={containerRef} dangerouslySetInnerHTML={{ __html: htmlContent }} />;
+}
+

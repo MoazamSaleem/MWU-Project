@@ -11155,6 +11155,9 @@ te .footer-widget .widget_title:before {
   text-transform: capitalize;
   margin-bottom: -0.3em;
   margin-top: -0.3em;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .breadcumb-patern,
@@ -11168,8 +11171,8 @@ te .footer-widget .widget_title:before {
   height: 100%;
   left: auto;
   right: -10px;
-  z-index: 2;
-  width: 1091px;
+  z-index: 1;
+  width: 1000px;
   -webkit-mask-image: url("../img/bg/breadcrumbs-shape.png");
           mask-image: url("../img/bg/breadcrumbs-shape.png");
   -webkit-mask-repeat: no-repeat;
@@ -11256,7 +11259,9 @@ te .footer-widget .widget_title:before {
   --space: 142px;
   padding: var(--space) 0;
   position: relative;
-  z-index: 1;
+  z-index: 5;
+  max-width: min(100%, 1100px);
+  padding-right: 16px;
   /* Medium Large devices */
   /* Medium devices */
   /* Small devices */
