@@ -4,6 +4,7 @@ import { legacyPageSet } from "./legacyPages";
 
 const STYLE_ATTR = "data-legacy-style";
 const SCRIPT_ATTR = "data-legacy-script";
+const STYLE_BATCH_ATTR = "data-legacy-style-batch";
 
 const legacyAliases = {
   "home-university": "index",
@@ -46,6 +47,47 @@ function toRoutePath(href) {
 function cleanupLegacyAssets() {
   document.querySelectorAll(`link[${STYLE_ATTR}], style[${STYLE_ATTR}]`).forEach((node) => node.remove());
   document.querySelectorAll(`script[${SCRIPT_ATTR}]`).forEach((node) => node.remove());
+}
+
+function cleanupLegacyScripts() {
+  document.querySelectorAll(`script[${SCRIPT_ATTR}]`).forEach((node) => node.remove());
+}
+
+function waitForStylesheet(link) {
+  return new Promise((resolve) => {
+    // If already loaded from cache, `sheet` is often present immediately.
+    if (link.sheet) {
+      resolve();
+      return;
+    }
+
+    const done = () => resolve();
+    link.addEventListener("load", done, { once: true });
+    link.addEventListener("error", done, { once: true });
+    setTimeout(done, 3000);
+  });
+}
+
+async function applyLegacyStyles(doc) {
+  const batchId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const previousStyles = Array.from(
+    document.querySelectorAll(`link[${STYLE_ATTR}], style[${STYLE_ATTR}]`)
+  );
+  const styleLoaders = [];
+
+  doc.head.querySelectorAll("link[rel='stylesheet'], style").forEach((node) => {
+    const clone = node.cloneNode(true);
+    clone.setAttribute(STYLE_ATTR, "true");
+    clone.setAttribute(STYLE_BATCH_ATTR, batchId);
+    document.head.appendChild(clone);
+
+    if (clone.tagName === "LINK" && clone.getAttribute("rel")?.toLowerCase() === "stylesheet") {
+      styleLoaders.push(waitForStylesheet(clone));
+    }
+  });
+
+  await Promise.all(styleLoaders);
+  previousStyles.forEach((node) => node.remove());
 }
 
 async function executeLegacyScripts(scripts) {
@@ -107,14 +149,7 @@ export default function LegacyPage() {
         const doc = new DOMParser().parseFromString(source, "text/html");
 
         document.title = doc.title || "MWU";
-
-        cleanupLegacyAssets();
-
-        doc.head.querySelectorAll("link[rel='stylesheet'], style").forEach((node) => {
-          const clone = node.cloneNode(true);
-          clone.setAttribute(STYLE_ATTR, "true");
-          document.head.appendChild(clone);
-        });
+        await applyLegacyStyles(doc);
 
         const scripts = [];
         doc.querySelectorAll("script").forEach((script) => {
@@ -128,6 +163,7 @@ export default function LegacyPage() {
         });
 
         const bodyHtml = doc.body ? doc.body.innerHTML : source;
+        cleanupLegacyScripts();
         setHtmlContent(bodyHtml);
 
         requestAnimationFrame(() => {
