@@ -6,10 +6,10 @@
   "scripts": {
     "sync:legacy-assets": "node scripts/sync-legacy-assets.mjs",
     "predev": "npm run sync:legacy-assets",
-    "dev": "vite",
+    "dev": "node ./node_modules/vite/bin/vite.js",
     "prebuild": "npm run sync:legacy-assets",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "node ./node_modules/vite/bin/vite.js build",
+    "preview": "node ./node_modules/vite/bin/vite.js preview"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.5.2",
