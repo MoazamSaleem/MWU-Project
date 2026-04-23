@@ -1,4 +1,4 @@
-﻿@charset "UTF-8";
+@charset "UTF-8";
 /*
 Template Name: Stadum 
 Template URL: https://themeholy.com/html/Stadum/
@@ -21249,6 +21249,7 @@ span.select2-selection.select2-selection--single:focus {
 
 .why-video {
   position: absolute;
+  width: 100%;
   max-width: 724px;
   height: 100%;
   top: 0;
@@ -21300,7 +21301,7 @@ span.select2-selection.select2-selection--single:focus {
   position: relative;
   height: 100%;
   z-index: 3;
-  margin-right: -16%;
+  margin-right: 0;
   /* Medium Large devices */
 }
 
