@@ -25,16 +25,26 @@ function toRoutePath(href) {
   if (href.startsWith("http://") || href.startsWith("https://")) return null;
 
   const [pathPart, hashPart] = href.split("#");
-  const [pathname, query] = pathPart.split("?");
+  const [pathname = "", query] = pathPart.split("?");
 
-  if (!pathname.endsWith(".html")) return null;
-
-  const fileName = pathname.split("/").pop();
+  const fileName = pathname.split("/").pop() || pathname;
   if (!fileName) return null;
 
-  let slug = fileName.replace(/\.html$/i, "");
+  let slug = "";
+  if (/\.html$/i.test(fileName)) {
+    slug = fileName.replace(/\.html$/i, "");
+  } else if (!fileName.includes(".")) {
+    slug = fileName;
+  } else {
+    return null;
+  }
+
   if (legacyAliases[slug]) {
     slug = legacyAliases[slug];
+  }
+
+  if (!legacyPageSet.has(slug)) {
+    return null;
   }
 
   const baseRoute = slug === "index" ? "/" : `/${slug}`;
@@ -202,9 +212,6 @@ export default function LegacyPage() {
       const routePath = toRoutePath(href);
       if (!routePath) return;
 
-      const slugValue = routePath.split("?")[0].split("#")[0].replace(/^\//, "") || "index";
-      if (!legacyPageSet.has(slugValue)) return;
-
       event.preventDefault();
       navigate(routePath);
     };
@@ -212,6 +219,38 @@ export default function LegacyPage() {
     root.addEventListener("click", onClick);
     return () => root.removeEventListener("click", onClick);
   }, [navigate, location.pathname]);
+
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return undefined;
+
+    const rewriteAnchor = (anchor) => {
+      const href = anchor.getAttribute("href");
+      const routePath = toRoutePath(href);
+      if (!routePath || href === routePath) return;
+      anchor.setAttribute("href", routePath);
+    };
+
+    const rewriteNodeAnchors = (node) => {
+      if (!(node instanceof Element)) return;
+      if (node.matches("a[href]")) {
+        rewriteAnchor(node);
+      }
+      node.querySelectorAll("a[href]").forEach((anchor) => rewriteAnchor(anchor));
+    };
+
+    rewriteNodeAnchors(root);
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => rewriteNodeAnchors(node));
+      });
+    });
+
+    observer.observe(root, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [htmlContent]);
 
   return <div ref={containerRef} dangerouslySetInnerHTML={{ __html: htmlContent }} />;
 }
