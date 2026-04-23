@@ -44,6 +44,12 @@ function toRoutePath(href) {
   return `${baseRoute}${queryPart}${hash}`;
 }
 
+function normalizeLegacyBodyHtml(html) {
+  // Some legacy pages begin with an orphan closing div before the injected header mount.
+  // Remove only leading stray closers so section layout is not broken.
+  return (html || "").replace(/^\s*(<\/div>\s*)+/i, "");
+}
+
 function cleanupLegacyAssets() {
   document.querySelectorAll(`link[${STYLE_ATTR}], style[${STYLE_ATTR}]`).forEach((node) => node.remove());
   document.querySelectorAll(`script[${SCRIPT_ATTR}]`).forEach((node) => node.remove());
@@ -164,7 +170,7 @@ export default function LegacyPage() {
 
         const bodyHtml = doc.body ? doc.body.innerHTML : source;
         cleanupLegacyScripts();
-        setHtmlContent(bodyHtml);
+        setHtmlContent(normalizeLegacyBodyHtml(bodyHtml));
 
         requestAnimationFrame(() => {
           executeLegacyScripts(scripts);
