@@ -28802,9 +28802,10 @@ span.select2-selection.select2-selection--single:focus {
 }
 
 .chancellor-thumb img {
-  position: absolute;
+ 
   left: 0;
   right: 0;
+  height: 100% !important;
   text-align: center;
   margin: auto;
   bottom: 0;
