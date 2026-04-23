@@ -32339,6 +32339,23 @@ Mentorship Area Home 3
   flex: 0 0 auto;
 }
 
+@media (min-width: 1600px) {
+  .header-layout2 .header-action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+.header-layout2 .header-action .header-flag-gif {
+  width: 100px;
+  height: 56px;
+  min-width: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+
 @media (max-width: 1399px) {
   .header-layout2 .main-menu {
     margin-left: 30px;
