@@ -1,15 +1,13 @@
-﻿const express = require('express');
+const express = require('express');
 const path = require('path');
-const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const rootDir = __dirname;
+const publicDir = path.join(rootDir, 'public');
 
-// Redirect `.html` URLs to clean extensionless routes.
+// Redirect top-level `.html` URLs to clean extensionless routes.
 app.use((req, res, next) => {
-  // Only rewrite top-level page URLs like `/about.html`.
-  // Do not rewrite nested asset paths like `/assets/partials/inner-header.html`.
   if (!/^\/[^/]+\.html$/.test(req.path)) {
     return next();
   }
@@ -22,23 +20,14 @@ app.use((req, res, next) => {
   return res.redirect(301, `${cleanPath}${query}`);
 });
 
-app.use(express.static(rootDir));
+// Serve `public/*` files (legacy pages/assets) directly from root URL.
+app.use(express.static(publicDir));
+// Serve root-level files such as `index.html`.
+app.use(express.static(rootDir, { index: false }));
 
-app.get('/', (_req, res) => {
+// SPA fallback for React Router routes.
+app.get('*', (_req, res) => {
   res.sendFile(path.join(rootDir, 'index.html'));
-});
-
-// Serve extensionless pages dynamically (e.g., `/about` -> `about.html`).
-app.get('/:page', (req, res, next) => {
-  const page = req.params.page;
-  const file = `${page}.html`;
-  const filePath = path.join(rootDir, file);
-
-  if (!fs.existsSync(filePath)) {
-    return next();
-  }
-
-  return res.sendFile(filePath);
 });
 
 app.listen(PORT, () => {
